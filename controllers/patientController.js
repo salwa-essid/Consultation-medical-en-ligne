@@ -14,7 +14,6 @@ var roles = require("../constant/appRoles");
 var decoder = require("../tools/AuthorizationDecode")
 module.exports = {
   register: (rq, rs, nx) => {
-    console.log(rq.body)
     let UserModel = mapper(userEntity, rq.body);
     const schema = Joi.object().keys({
       Id: Joi.string().optional().allow(""),
@@ -84,65 +83,56 @@ module.exports = {
     })
   },
 
-
   update: (rq, rs, nx) => {
+    let UserModel = mapper(userEntity, rq.body);
     const schema = Joi.object().keys({
-        Id: Joi.string().required(),
-        Firstname: Joi.string().required().max(30).min(3).regex(/^[a-zA-Z_ ]+$/),
-        Lastname: Joi.string().optional().allow(""),
-        Address: Joi.string() .optional().allow(""),
-        Birth: Joi.string().optional().allow(""),
-      
-       
-        Phone: Joi.string().optional().allow(""),
-        Diploma: Joi.string().optional().allow(""),
-       
-        Email: Joi.string().email({minDomainSegments: 2 }).required().max(50),
-        Password: Joi.string().min(8).max(30).required(),
-        
+      Id: Joi.string().required(),
+      Firstname: Joi.string().required().max(30).min(3).regex(/^[a-zA-Z_ ]+$/),
+      Lastname: Joi.string().required(),
+      Address: Joi.string().required(),
+      Phone: Joi.string().required(),
+      Email: Joi.string().email({
+        minDomainSegments: 2
+      }).required().max(50),
     });
 
-    const { error, value } = Joi.validate(rq.body, schema);
+    const {
+      error,
+      value
+    } = Joi.validate(rq.body, schema);
 
     if (error) {
-       return rs.status(200).json(responsRender({}, serverErrors.INVALID_DATA, "")); 
-      }
+      return rs.status(200).json(responsRender({}, serverErrors.INVALID_DATA, ""));
+    }
 
     database.connectToDb();
-    userEntity.Id = rq.body.Id;
-    userEntity.Address = rq.body.Address;
-    userEntity.Email = rq.body.Email;
-    userEntity.Lastname = rq.body.Lastname;
-    userEntity.Firstname = rq.body.Firstname;
-    userEntity.Phone = rq.body.Phone;
-    userEntity.Birth = rq.body.Birth;
-    userEntity.Diploma = rq.body.Diploma;
-    userEntity.UpdatedAt = new Date();
-    userDataAccess.GetUserById(userEntity.Id, (err, usr) => {
-        if (err) { return rs.status(500).json(responsRender({}, serverErrors.SERVER_ERROR, "")) }
-        else if (usr && usr.length > 0) {
-            usr[0].Address = userEntity.Address;
-            usr[0].Email = userEntity.Email;
-            usr[0].Lastname = userEntity.Lastname;
-            usr[0].Firstname = userEntity.Firstname;
-            usr[0].Phone = userEntity.Phone;
-            usr[0].Birth = userEntity.Birth;
-            usr[0].Diploma = userEntity.Diploma;
-            usr[0].UpdatedAt = userEntity.UpdatedAt;
-            userDataAccess.updateUser(usr[0], function (err, user) {
-                database.disconnect();
-                if (err) { return rs.status(500).json(responsRender({}, ServerErrors.SERVER_ERROR, "")) }
-                if (user && user != "") {
-                    return rs.status(200).json(responsRender(user, "", ServerMessage.OK))
-                } else {
-                    return rs.status(404).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
-                }
-            });
-        } else {
+    userDataAccess.GetUserById(UserModel.Id, (err, usr) => {
+      if (err) {
+        database.disconnect();
+        return rs.status(500).json(responsRender({}, serverErrors.SERVER_ERROR, ""))
+      } else if (usr && usr.length > 0) {
+        UserModel.Birth = usr[0].Birth;
+        UserModel.UpdatedAt = new Date();
+        UserModel.CreatedAt = usr[0].CreatedAt;
+        UserModel.Password = usr[0].Password;
+        UserModel.Role = usr[0].Role;
+        UserModel.IsActive = usr[0].IsActive;
+        userDataAccess.updateUser(UserModel, (error, succes) => {
+          database.disconnect()
+          if (error) {
+            return rs.status(500).json(responsRender({}, ServerErrors.SERVER_ERROR, ""))
+          }
+          if (succes && succes != "") {
+            return rs.status(200).json(responsRender(succes, "", ServerMessage.OK))
+          } else {
             return rs.status(404).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
-        }
+          }
+        });
+      } else {
+        return rs.status(404).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
+      }
     });
-},
+  },
 
   delete: (rq, rs, nx) => {
     if (typeof (rq.params.id) === "undefined") {
@@ -162,23 +152,22 @@ module.exports = {
   getpatient: (rq, rs, nx) => {
     database.connectToDb();
     userDataAccess.GetUserById(rq.params.id, function (err, user) {
-        database.disconnect();
-        if (err) {
-            rs.status(400).json(responsRender({}, ServerErrors.SERVER_ERROR, ""));
-        }
-        if (user) {
-            if (user.length == 0) {
-                return rs.status(200).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
-            }
-            else {
-                user[0].Password = null;
-                return rs.status(200).json(responsRender(user[0], "", ServerMessage .OK));
-            }
+      database.disconnect();
+      if (err) {
+        rs.status(400).json(responsRender({}, ServerErrors.SERVER_ERROR, ""));
+      }
+      if (user) {
+        if (user.length == 0) {
+          return rs.status(200).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
         } else {
-            return rs.status(200).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
+          user[0].Password = null;
+          return rs.status(200).json(responsRender(user[0], "", ServerMessage.OK));
         }
+      } else {
+        return rs.status(200).json(responsRender({}, ServerErrors.ACCOUNT_NOT_FOUND, ""))
+      }
     })
-},
+  },
 
 
   addRdv: (rq, rs, nx) => {
@@ -228,7 +217,7 @@ module.exports = {
         return rs.status(500).json(responsRender(null, ServerErrors.SERVER_ERROR, ""))
       }
       list.forEach(element => {
-        element.Password=null
+        element.Password = null
       });
       return rs.status(200).json(responsRender(list, "", ServerMessage.OK))
 

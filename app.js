@@ -11,8 +11,10 @@ var indexRouter = require('./routes/index');
 var psyRouter = require('./routes/psy');
 var patientRouter = require("./routes/patient") 
 var adminRouter = require("./routes/admin") 
-
+var multer  = require('multer');
+var fs  = require('fs');
 var app = express();
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(logger('dev'));

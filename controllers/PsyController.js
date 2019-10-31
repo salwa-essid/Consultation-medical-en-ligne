@@ -80,6 +80,19 @@ module.exports = {
     })
   },
 
+
+  profile :(rq,rs,nx) => {
+    let token = rq.headers.authorization.split(" ")[1];
+    let id = decoder.getSubject(token)
+    database.connectToDb()
+    userDataAccess.GetUserById(id,(error,user)=>{
+      database.disconnect()
+      if (error) {
+        return rs.status(500).json(responsRender(null, ServerErrors.SERVER_ERROR, ""))
+      }
+      return rs.status(200).json(responsRender(user, "", ServerMessage.OK))
+    })
+  },
  
 
   delete: (rq, rs, nx) => {
